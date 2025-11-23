@@ -22,18 +22,21 @@ INSTALLED_APPS = [
     'chats.apps.ChatsConfig',
 ]
 
+# settings.py
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',   # ← MUST BE HERE
-    'chats.middleware.RestrictAccessByTimeMiddleware',
-    'chats.middleware.RequestLoggingMiddleware',                  # ← NOW SAFE TO USE request.user
-    'chats.middleware.OffensiveLanguageMiddleware', 
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Your custom middleware (order matters)
+    'chats.middleware.RequestLoggingMiddleware',
+    'chats.middleware.RestrictAccessByTimeMiddleware',
+    'chats.middleware.OffensiveLanguageMiddleware',
+    'chats.middleware.RolePermissionMiddleware',
 ]
+
 
 ROOT_URLCONF = 'django_middleware.urls'
 

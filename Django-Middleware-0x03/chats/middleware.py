@@ -9,7 +9,7 @@ import time as time_module
 
 
 # ========================
-# 1. Request Logging Middleware (Task 1)
+# Logger Setup
 # ========================
 logger = logging.getLogger('request_logger')
 logger.setLevel(logging.INFO)
@@ -23,8 +23,13 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
+# ========================
+# 1. Request Logging Middleware
+# ========================
 class RequestLoggingMiddleware:
-    """Logs every request: timestamp - User - Path → requests.log"""
+    """
+    Logs every request: timestamp - User - Path → requests.log
+    """
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -41,7 +46,7 @@ class RequestLoggingMiddleware:
 
 
 # ========================
-# 2. Restrict Access by Time Middleware (Task 2 - 100% PASS)
+# 2. Restrict Access by Time Middleware
 # ========================
 class RestrictAccessByTimeMiddleware:
     """
@@ -66,7 +71,7 @@ class RestrictAccessByTimeMiddleware:
 
 
 # ========================
-# 3. Offensive Language Middleware (Task 3)
+# 3. Offensive Language Middleware (Rate Limiting)
 # ========================
 class OffensiveLanguageMiddleware:
     """
@@ -122,3 +127,94 @@ class OffensiveLanguageMiddleware:
                 timestamp for timestamp in self.ip_requests[ip_address]
                 if current_time - timestamp <= self.time_window
             ]
+
+
+# ========================
+# 4. Role Permission Middleware
+# ========================
+class RolePermissionMiddleware:
+    """
+    Checks user's role before allowing access to specific actions
+    Only allows admin or moderator users for protected actions
+    Excludes Django admin paths to avoid conflicts with built-in admin auth
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+        # Define protected actions and paths (custom app routes only)
+        self.protected_actions = [
+            '/moderate/',    # Moderation actions
+            '/delete/',      # Delete operations  
+            '/manage/',      # Management operations
+            '/users/',       # User management
+            '/api/admin/',   # Custom API admin routes
+            '/chat-admin/',  # Custom chat admin routes
+        ]
+
+    def __call__(self, request):
+        # Check if the current path requires admin/moderator permissions
+        if self.requires_permission(request.path):
+            # Check if user is authenticated
+            if not request.user.is_authenticated:
+                return JsonResponse({
+                    "detail": "Authentication required to access this resource."
+                }, status=401)
+            
+            # Check if user has required role (admin or moderator)
+            if not self.has_required_role(request.user):
+                return JsonResponse({
+                    "detail": "Access denied. Admin or moderator role required."
+                }, status=403)
+
+        response = self.get_response(request)
+        return response
+
+    def requires_permission(self, path):
+        """
+        Check if the requested path requires admin/moderator permissions
+        Excludes Django admin paths to let Django's built-in admin handle authentication
+        """
+        # Skip Django admin paths completely
+        if path.startswith('/admin/'):
+            return False
+            
+        # Skip admin login and logout pages
+        if path in ['/admin/login/', '/admin/logout/']:
+            return False
+            
+        # Check if path starts with any of the protected action prefixes
+        return any(path.startswith(protected_path) for protected_path in self.protected_actions)
+
+    def has_required_role(self, user):
+        """
+        Check if user has admin or moderator role
+        Supports multiple role checking methods
+        """
+        # Method 1: Check Django's built-in staff/superuser flags
+        if hasattr(user, 'is_staff') and user.is_staff:
+            return True
+        if hasattr(user, 'is_superuser') and user.is_superuser:
+            return True
+        
+        # Method 2: Check Django groups
+        if hasattr(user, 'groups'):
+            try:
+                group_names = user.groups.values_list('name', flat=True)
+                if 'admin' in group_names or 'moderator' in group_names:
+                    return True
+            except:
+                pass
+        
+        # Method 3: Check custom role field (if exists)
+        if hasattr(user, 'role'):
+            if user.role in ['admin', 'moderator']:
+                return True
+        
+        # Method 4: Check specific permissions
+        if hasattr(user, 'has_perm'):
+            if user.has_perm('chats.admin_access') or user.has_perm('chats.moderator_access'):
+                return True
+            # Check Django's default admin permissions
+            if user.has_perm('auth.admin_access') or user.has_perm('auth.moderator_access'):
+                return True
+        
+        return False
