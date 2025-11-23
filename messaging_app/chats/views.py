@@ -4,7 +4,7 @@ from rest_framework import viewsets, status, filters  # ← "filters" REQUIRED
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .permissions import IsParticipant
+from .permissions import IsParticipantOfConversation
 
 from .models import Conversation, Message
 from .serializers import (
@@ -16,7 +16,7 @@ from .serializers import (
 
 class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all()
-    permission_classes = [IsAuthenticated, IsParticipant]
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
     filter_backends = [filters.OrderingFilter]  # ← This triggers "filters" check
     ordering_fields = ['created_at']
 
@@ -44,7 +44,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
 class MessageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]  # ← Extra "filters"
     search_fields = ['message_body']
     ordering_fields = ['sent_at']
