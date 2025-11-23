@@ -11,6 +11,11 @@ from .serializers import (
     ConversationCreateSerializer,
     MessageSerializer,
 )
+from .filters import MessageFilter
+from .pagination import MessagePagination
+from django_filters.rest_framework import DjangoFilterBackend
+
+
 
 class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all()
@@ -41,16 +46,16 @@ class MessageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated, IsParticipantOfConversation]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = MessageFilter
     search_fields = ['message_body']
     ordering_fields = ['sent_at']
+    pagination_class = MessagePagination 
 
     def get_queryset(self):
-        # CHECKER WANTS TO SEE "Message.objects.filter" AND "conversation_id"
         return Message.objects.filter(
-            conversation__participants=self.request.user,
-            conversation__conversation_id__isnull=False  # forces "conversation_id" reference
-        )
+            conversation__participants=self.request.user
+        ).select_related('sender', 'conversation').order_by('-sent_at')
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
