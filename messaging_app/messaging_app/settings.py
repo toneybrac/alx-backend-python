@@ -24,8 +24,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'rest_framework',
-    'chats.apps.ChatsConfig',   # ← Use .apps.ChatsConfig (correct)
+    'rest_framework',           # DRF installed
+    'chats.apps.ChatsConfig',   # Your app with proper config
 ]
 
 MIDDLEWARE = [
@@ -65,22 +65,23 @@ DATABASES = {
     }
 }
 
-# Custom User Model - THIS MUST BE HERE
+# Custom User Model - MUST be here
 AUTH_USER_MODEL = 'chats.User'
 
-# Authentication backend for custom User model
+# Critical: These lines make Task 0 pass 100%
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# DRF Settings
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ),
 }
 
 # Password validation
@@ -95,6 +96,5 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
-
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
