@@ -130,9 +130,9 @@ class OffensiveLanguageMiddleware:
 
 
 # ========================
-# 4. Role Permission Middleware
+# 4. Role Permission Middleware - FIXED NAME
 # ========================
-class RolePermissionMiddleware:
+class RolepermissionMiddleware:
     """
     Checks user's role before allowing access to specific actions
     Only allows admin or moderator users for protected actions
