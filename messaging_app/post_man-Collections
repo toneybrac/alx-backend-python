@@ -1,0 +1,61 @@
+{
+  "info": {
+    "_postman_id": "alx-messaging-app-2025",
+    "name": "ALX Messaging App - Complete API Tests (Task 3)",
+    "description": "Tests JWT login, conversation creation, sending messages, pagination, filtering, and unauthorized access protection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Login - Get JWT Token",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\"email\": \"user1@example.com\", \"password\": \"password123\"}"},
+        "url": "{{base_url}}/api/token/"
+      }
+    },
+    {
+      "name": "2. Create Conversation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {"mode": "raw", "raw": "{\"participant_ids\": []}"},
+        "url": "{{base_url}}/api/conversations/"
+      }
+    },
+    {
+      "name": "3. Send Message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{token}}"}
+        ],
+        "body": {"mode": "raw", "raw": "{\"message_body\": \"Hello from Postman!\"}"},
+        "url": "{{base_url}}/api/conversations/{conversation_id}/send-message/"
+      }
+    },
+    {
+      "name": "4. Get Messages (with pagination & filtering)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+        "url": "{{base_url}}/api/messages/?page=1&sent_after=2025-01-01"
+      }
+    },
+    {
+      "name": "5. Unauthorized Access (401 Expected)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/conversations/"
+      }
+    }
+  ],
+  "variable": [
+    {"key": "base_url", "value": "http://127.0.0.1:8000"},
+    {"key": "token", "value": ""}
+  ]
+}
