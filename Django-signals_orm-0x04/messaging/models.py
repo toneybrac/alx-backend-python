@@ -12,30 +12,44 @@ class Message(models.Model):
     )
     content = models.TextField()
     timestamp = models.DateTimeField(default=timezone.now)
-    edited = models.BooleanField(default=False)        # ← NEW
-    edited_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="edited_messages")
+    edited = models.BooleanField(default=False)
+    edited_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="edited_messages"
+    )
     is_read = models.BooleanField(default=False)
 
+    # Threading support
+    parent_message = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='replies'
+    )
+
     class Meta:
-        ordering = ["-timestamp"]
+        ordering = ["timestamp"]
         indexes = [
             models.Index(fields=["receiver", "-timestamp"]),
+            models.Index(fields=["parent_message"]),
         ]
 
     def __str__(self):
-        return f"{self.sender} → {self.receiver}: {self.content[:30]}"
+        return f"{self.sender} → {self.receiver}: {self.content[:50]}"
+
+    # Recursive method to get all replies (for UI display)
+    def get_thread(self):
+        """Return all replies in threaded order"""
+        thread = [self]
+        for reply in self.replies.all():
+            thread.extend(reply.get_thread())
+        return thread
 
 
 class MessageHistory(models.Model):
     message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="history")
     old_content = models.TextField()
     edited_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-edited_at"]
-
-    def __str__(self):
-        return f"Edit of message {self.message.id} at {self.edited_at}"
 
 
 class Notification(models.Model):
@@ -46,5 +60,4 @@ class Notification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
         unique_together = ["user", "message"]
