@@ -30,3 +30,4 @@ def log_message_edit(sender, instance, **kwargs):
             old_content=old_message.content
         )
         instance.edited = True  # Mark as edited
+        instance.edited_by = instance.sender
