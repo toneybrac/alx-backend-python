@@ -1,4 +1,3 @@
-
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -13,6 +12,7 @@ class Message(models.Model):
     )
     content = models.TextField()
     timestamp = models.DateTimeField(default=timezone.now)
+    edited = models.BooleanField(default=False)        # ← NEW
     is_read = models.BooleanField(default=False)
 
     class Meta:
@@ -22,7 +22,19 @@ class Message(models.Model):
         ]
 
     def __str__(self):
-        return f"From {self.sender} to {self.receiver} @ {self.timestamp}"
+        return f"{self.sender} → {self.receiver}: {self.content[:30]}"
+
+
+class MessageHistory(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="history")
+    old_content = models.TextField()
+    edited_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-edited_at"]
+
+    def __str__(self):
+        return f"Edit of message {self.message.id} at {self.edited_at}"
 
 
 class Notification(models.Model):
@@ -35,6 +47,3 @@ class Notification(models.Model):
     class Meta:
         ordering = ["-created_at"]
         unique_together = ["user", "message"]
-
-    def __str__(self):
-        return f"Notification for {self.user} – {self.title}"
