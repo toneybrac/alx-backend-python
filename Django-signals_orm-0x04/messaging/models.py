@@ -13,6 +13,9 @@ class UnreadMessagesManager(models.Manager):
 
 
 class Message(models.Model):
+    objects = models.Manager()
+    # Custom manager for unread messages
+    unread = UnreadMessagesManager()
     sender = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="sent_messages"
     )
@@ -33,7 +36,7 @@ class Message(models.Model):
     )
 
     # Managers
-    objects = models.ModelManager()           # default
+    objects = models.Manager()           # default
     unread = UnreadMessagesManager()            # custom one
 
     class Meta:
