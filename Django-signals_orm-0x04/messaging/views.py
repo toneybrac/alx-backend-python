@@ -1,20 +1,45 @@
 from django.contrib.auth.models import User
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
-import json
+from django.shortcuts import get_object_or_404
+from .models import Message
 
 
 @login_required
 @require_POST
 def delete_user(request):
-    """
-    View to allow a user to delete their own account.
-    The actual cleanup is done via post_delete signal (see signals.py)
-    """
+    """Delete current user account – triggers post_delete signal"""
     try:
-        user = request.user
-        user.delete()  # This will trigger the post_delete signal
-        return JsonResponse({"status": "success", "message": "Account deleted successfully"})
+        request.user.delete()
+        return JsonResponse({"status": "success", "message": "Account deleted"})
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+
+@login_required
+@require_GET
+def conversation_thread(request, message_id):
+    """Return full threaded conversation with optimized queries"""
+    root_message = get_object_or_404(
+        Message.objects.select_related('sender', 'receiver')
+                      .prefetch_related('replies__sender', 'replies__receiver'),
+        id=message_id,
+        receiver=request.user
+    )
+
+    thread = root_message.get_thread()
+
+    data = [
+        {
+            "id": msg.id,
+            "sender": msg.sender.username,
+            "content": msg.content,
+            "timestamp": msg.timestamp.isoformat(),
+            "parent_id": msg.parent_message.id if msg.parent_message else None,
+            "edited": msg.edited,
+        }
+        for msg in thread
+    ]
+
+    return JsonResponse({"thread": data})
