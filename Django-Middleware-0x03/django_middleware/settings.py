@@ -20,6 +20,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',           # ← JWT
     'django_filters',
     'chats.apps.ChatsConfig',
+    "messaging.apps.MessagingConfig",
+
 ]
 
 # settings.py
