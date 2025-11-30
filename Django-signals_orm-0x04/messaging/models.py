@@ -3,6 +3,15 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 
+class UnreadMessagesManager(models.Manager):
+    """Custom manager to get only unread messages for a specific user"""
+    def for_user(self, user):
+        return self.get_queryset().filter(
+            receiver=user,
+            is_read=False
+        ).only('id', 'sender', 'content', 'timestamp', 'parent_message')
+
+
 class Message(models.Model):
     sender = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="sent_messages"
@@ -16,34 +25,26 @@ class Message(models.Model):
     edited_by = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name="edited_messages"
     )
-    is_read = models.BooleanField(default=False)
+    is_read = models.BooleanField(default=False)  # Already existed – perfect
 
-    # Threading support
+    # Threading
     parent_message = models.ForeignKey(
-        'self',
-        null=True,
-        blank=True,
-        on_delete=models.CASCADE,
-        related_name='replies'
+        'self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies'
     )
 
+    # Managers
+    objects = models.ModelManager()           # default
+    unread = UnreadMessagesManager()            # custom one
+
     class Meta:
-        ordering = ["timestamp"]
+        ordering = ["-timestamp"]
         indexes = [
             models.Index(fields=["receiver", "-timestamp"]),
-            models.Index(fields=["parent_message"]),
+            models.Index(fields=["receiver", "is_read"]),
         ]
 
     def __str__(self):
-        return f"{self.sender} → {self.receiver}: {self.content[:50]}"
-
-    # Recursive method to get all replies (for UI display)
-    def get_thread(self):
-        """Return all replies in threaded order"""
-        thread = [self]
-        for reply in self.replies.all():
-            thread.extend(reply.get_thread())
-        return thread
+        return f"{self.sender} to {self.receiver}: {self.content[:50]}"
 
 
 class MessageHistory(models.Model):

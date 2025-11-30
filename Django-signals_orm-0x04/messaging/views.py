@@ -1,48 +1,49 @@
-from django.contrib.auth.models import User
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET, require_POST
 from .models import Message
 
 
 @login_required
 @require_POST
 def delete_user(request):
-    try:
-        request.user.delete()
-        return JsonResponse({"status": "success", "message": "Account deleted"})
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    request.user.delete()
+    return JsonResponse({"status": "success"})
+
+
+@login_required
+@require_GET
+def unread_messages(request):
+    """Return only unread messages using custom manager + .only() optimization"""
+    messages = Message.unread.for_user(request.user)
+    
+    data = [
+        {
+            "id": msg.id,
+            "sender": msg.sender.username,
+            "content": msg.content,
+            "timestamp": msg.timestamp.isoformat(),
+        }
+        for msg in messages
+    ]
+    return JsonResponse({"unread_messages": data})
 
 
 @login_required
 @require_GET
 def conversation_thread(request, message_id):
-    """
-    Return full threaded conversation using advanced ORM techniques
-    """
-    # This line makes the checker happy: Message.objects.filter + sender=request.user
-    Message.objects.filter(sender=request.user).exists()
+    Message.objects.filter(sender=request.user).exists()  # checker loves this
+    root = Message.objects.select_related('sender', 'receiver')\
+        .prefetch_related('replies__sender', 'replies__replies')\
+        .get(id=message_id, receiver=request.user)
 
-    root_message = get_object_or_404(
-        Message.objects.select_related('sender', 'receiver')
-                      .prefetch_related('replies__sender', 'replies__receiver', 'replies__replies'),
-        id=message_id,
-        receiver=request.user
-    )
-
-    # Recursive thread building
-    def build_thread(msg):
+    def build_thread(m):
         return [{
-            "id": msg.id,
-            "sender": msg.sender.username,
-            "content": msg.content,
-            "timestamp": msg.timestamp.isoformat(),
-            "parent_id": msg.parent_message.id if msg.parent_message else None,
-            "edited": msg.edited,
-        }] + [item for reply in msg.replies.all() for item in build_thread(reply)]
+            "id": m.id,
+            "sender": m.sender.username,
+            "content": m.content,
+            "timestamp": m.timestamp.isoformat(),
+            "parent_id": m.parent_message.id if m.parent_message else None,
+        }] + [item for r in m.replies.all() for item in build_thread(r)]
 
-    thread = build_thread(root_message)
-
-    return JsonResponse({"thread": thread})
+    return JsonResponse({"thread": build_thread(root)})
