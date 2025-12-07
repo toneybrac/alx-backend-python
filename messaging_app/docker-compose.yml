@@ -1,53 +1,24 @@
 version: '3.8'
 
 services:
-  # Django web application
   web:
     build: .
     ports:
       - "8000:8000"
     environment:
-      - DEBUG=1
-      - SECRET_KEY=your-secret-key-change-this
-      - ALLOWED_HOSTS=localhost,127.0.0.1
-      # MySQL database configuration
-      - MYSQL_DATABASE=messaging_db
       - MYSQL_USER=mysqluser
+      - MYSQL_DB=messaging_db
       - MYSQL_PASSWORD=mysqlpassword
-      - DATABASE_HOST=db
-      - DATABASE_PORT=3306
     depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - .:/app
-      - static_volume:/app/static
-      - media_volume:/app/media
-    command: >
-      sh -c "python manage.py wait_for_db &&
-             python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
-    restart: unless-stopped
+      - db
+    command: python3 manage.py runserver 0.0.0.0:8000
 
-  # MySQL database
   db:
     image: mysql:8.0
     environment:
-      - MYSQL_ROOT_PASSWORD=rootpassword
-      - MYSQL_DATABASE=messaging_db
       - MYSQL_USER=mysqluser
+      - MYSQL_DB=messaging_db
       - MYSQL_PASSWORD=mysqlpassword
+      - MYSQL_ROOT_PASSWORD=rootpassword
     ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
-
-volumes:
-  mysql_data:
-  static_volume:
-  media_volume:
+      - "3307:3306"
