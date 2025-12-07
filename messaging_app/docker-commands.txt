@@ -1,0 +1,2 @@
+docker build -t messaging-app .
+docker run -p 8000:8000 messaging-app

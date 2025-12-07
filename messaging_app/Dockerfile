@@ -20,5 +20,9 @@ COPY . .
 # Expose the port your Django app runs on (default is 8000).
 EXPOSE 8000
 
+<<<<<<< HEAD
 # Run the application
+=======
+# Run with docker run -p 8000:8000 image_name
+>>>>>>> a61625a (fix: add -p flag reference to Dockerfile)
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
