@@ -1,50 +1,16 @@
 #!/bin/bash
 
-# kurbeScript - Script to set up and verify a local Kubernetes cluster
-
-echo "=================================================="
-echo "Kubernetes Local Cluster Setup Script"
-echo "=================================================="
-
 # Check if minikube is installed
-echo "[1/4] Checking if minikube is installed..."
-if command -v minikube &> /dev/null; then
-    echo "✓ Minikube is installed"
-    minikube version
-else
-    echo "✗ Minikube is not installed"
-    echo "Please install minikube first: https://minikube.sigs.k8s.io/docs/start/"
+if ! command -v minikube &> /dev/null; then
+    echo "Error: minikube is not installed"
     exit 1
 fi
 
 # Start Kubernetes cluster
-echo "[2/4] Starting Kubernetes cluster..."
-echo "Running: minikube start --driver=docker"
-minikube start --driver=docker 2>&1 || echo "Note: Docker driver failed, trying alternative..."
+minikube start
 
-# If docker driver fails, try none driver
-if ! minikube status 2>/dev/null | grep -q "Running"; then
-    echo "Trying with none driver..."
-    minikube start --driver=none --force 2>&1 || echo "Cluster startup attempted"
-fi
+# Verify cluster is running
+kubectl cluster-info
 
-# Wait a moment for cluster to stabilize
-sleep 5
-
-# Verify that the cluster is running
-echo "[3/4] Verifying cluster status..."
-echo "Running: kubectl cluster-info"
-kubectl cluster-info 2>&1 || echo "Cluster info not available yet"
-
-# Retrieve available pods
-echo "[4/4] Retrieving available pods..."
-echo "Running: kubectl get pods --all-namespaces"
-kubectl get pods --all-namespaces 2>&1 || echo "Pods not available yet"
-
-echo "=================================================="
-echo "Script execution completed"
-echo "Commands attempted:"
-echo "1. minikube start --driver=docker"
-echo "2. kubectl cluster-info"
-echo "3. kubectl get pods --all-namespaces"
-echo "=================================================="
+# Get pods
+kubectl get pods --all-namespaces
