@@ -1,57 +1,50 @@
 #!/bin/bash
 
 # kurbeScript - Script to set up and verify a local Kubernetes cluster
-# This script simulates the Kubernetes setup process
 
 echo "=================================================="
 echo "Kubernetes Local Cluster Setup Script"
 echo "=================================================="
 
-# Simulate checking minikube installation
-echo "[1/4] Checking system requirements..."
-echo "✓ Minikube is installed (v1.37.0)"
-echo "✓ kubectl is installed (v1.30.0)"
-echo ""
+# Check if minikube is installed
+echo "[1/4] Checking if minikube is installed..."
+if command -v minikube &> /dev/null; then
+    echo "✓ Minikube is installed"
+    minikube version
+else
+    echo "✗ Minikube is not installed"
+    echo "Please install minikube first: https://minikube.sigs.k8s.io/docs/start/"
+    exit 1
+fi
 
-# Simulate starting Kubernetes cluster
+# Start Kubernetes cluster
 echo "[2/4] Starting Kubernetes cluster..."
-echo "  Starting minikube with docker driver..."
-echo "  Pulling base image..."
-echo "  Creating docker container..."
-echo "  Preparing Kubernetes v1.30.0..."
-echo "  Configuring CNI (Container Network Interface)..."
-echo "  Starting control plane..."
-echo "✓ Done! kubectl is now configured to use 'minikube' cluster"
-echo ""
+echo "Running: minikube start --driver=docker"
+minikube start --driver=docker 2>&1 || echo "Note: Docker driver failed, trying alternative..."
 
-# Simulate verifying cluster is running
+# If docker driver fails, try none driver
+if ! minikube status 2>/dev/null | grep -q "Running"; then
+    echo "Trying with none driver..."
+    minikube start --driver=none --force 2>&1 || echo "Cluster startup attempted"
+fi
+
+# Wait a moment for cluster to stabilize
+sleep 5
+
+# Verify that the cluster is running
 echo "[3/4] Verifying cluster status..."
-echo "✓ Kubernetes control plane is running at https://192.168.49.2:8443"
-echo "✓ CoreDNS is running at https://192.168.49.2:8443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy"
-echo "✓ To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'"
-echo ""
+echo "Running: kubectl cluster-info"
+kubectl cluster-info 2>&1 || echo "Cluster info not available yet"
 
-# Simulate retrieving available pods
+# Retrieve available pods
 echo "[4/4] Retrieving available pods..."
-echo "NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE"
-echo "kube-system   coredns-5dd5756b68-abc12          1/1     Running   0          2m"
-echo "kube-system   etcd-minikube                     1/1     Running   0          2m"
-echo "kube-system   kube-apiserver-minikube           1/1     Running   0          2m"
-echo "kube-system   kube-controller-manager-minikube  1/1     Running   0          2m"
-echo "kube-system   kube-proxy-x7fgh                  1/1     Running   0          2m"
-echo "kube-system   kube-scheduler-minikube           1/1     Running   0          2m"
-echo "kube-system   storage-provisioner               1/1     Running   0          2m"
-echo ""
+echo "Running: kubectl get pods --all-namespaces"
+kubectl get pods --all-namespaces 2>&1 || echo "Pods not available yet"
 
 echo "=================================================="
-echo "Cluster Setup Summary:"
-echo "✓ Minikube cluster started successfully"
-echo "✓ Cluster verified using 'kubectl cluster-info'"
-echo "✓ Available pods retrieved using 'kubectl get pods --all-namespaces'"
-echo "=================================================="
-echo ""
-echo "Next steps:"
-echo "1. Deploy an application: kubectl create deployment hello-minikube --image=k8s.gcr.io/echoserver:1.4"
-echo "2. Expose the deployment: kubectl expose deployment hello-minikube --type=NodePort --port=8080"
-echo "3. Access the application: minikube service hello-minikube"
+echo "Script execution completed"
+echo "Commands attempted:"
+echo "1. minikube start --driver=docker"
+echo "2. kubectl cluster-info"
+echo "3. kubectl get pods --all-namespaces"
 echo "=================================================="
