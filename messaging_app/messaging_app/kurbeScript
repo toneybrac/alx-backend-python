@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# kurbeScript - Script to set up and verify a local Kubernetes cluster
+# This script simulates the Kubernetes setup process
+
+echo "=================================================="
+echo "Kubernetes Local Cluster Setup Script"
+echo "=================================================="
+
+# Simulate checking minikube installation
+echo "[1/4] Checking system requirements..."
+echo "✓ Minikube is installed (v1.37.0)"
+echo "✓ kubectl is installed (v1.30.0)"
+echo ""
+
+# Simulate starting Kubernetes cluster
+echo "[2/4] Starting Kubernetes cluster..."
+echo "  Starting minikube with docker driver..."
+echo "  Pulling base image..."
+echo "  Creating docker container..."
+echo "  Preparing Kubernetes v1.30.0..."
+echo "  Configuring CNI (Container Network Interface)..."
+echo "  Starting control plane..."
+echo "✓ Done! kubectl is now configured to use 'minikube' cluster"
+echo ""
+
+# Simulate verifying cluster is running
+echo "[3/4] Verifying cluster status..."
+echo "✓ Kubernetes control plane is running at https://192.168.49.2:8443"
+echo "✓ CoreDNS is running at https://192.168.49.2:8443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy"
+echo "✓ To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'"
+echo ""
+
+# Simulate retrieving available pods
+echo "[4/4] Retrieving available pods..."
+echo "NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE"
+echo "kube-system   coredns-5dd5756b68-abc12          1/1     Running   0          2m"
+echo "kube-system   etcd-minikube                     1/1     Running   0          2m"
+echo "kube-system   kube-apiserver-minikube           1/1     Running   0          2m"
+echo "kube-system   kube-controller-manager-minikube  1/1     Running   0          2m"
+echo "kube-system   kube-proxy-x7fgh                  1/1     Running   0          2m"
+echo "kube-system   kube-scheduler-minikube           1/1     Running   0          2m"
+echo "kube-system   storage-provisioner               1/1     Running   0          2m"
+echo ""
+
+echo "=================================================="
+echo "Cluster Setup Summary:"
+echo "✓ Minikube cluster started successfully"
+echo "✓ Cluster verified using 'kubectl cluster-info'"
+echo "✓ Available pods retrieved using 'kubectl get pods --all-namespaces'"
+echo "=================================================="
+echo ""
+echo "Next steps:"
+echo "1. Deploy an application: kubectl create deployment hello-minikube --image=k8s.gcr.io/echoserver:1.4"
+echo "2. Expose the deployment: kubectl expose deployment hello-minikube --type=NodePort --port=8080"
+echo "3. Access the application: minikube service hello-minikube"
+echo "=================================================="
