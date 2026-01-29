@@ -14,6 +14,7 @@ if ! command -v minikube &> /dev/null; then
     exit 1
 fi
 
+# Start minikube cluster
 echo "1. Starting Minikube cluster..."
 minikube start --driver=docker
 
@@ -28,6 +29,9 @@ kubectl get pods --all-namespaces
 
 echo "5. Setting Minikube context..."
 kubectl config use-context minikube
+
+echo "6. Checking cluster health..."
+minikube status
 
 echo "============================================="
 echo "Cluster Setup Complete!"
