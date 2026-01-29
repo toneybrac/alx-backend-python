@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# kurbeScript - Script to set up and verify Kubernetes cluster
+
+echo "============================================="
+echo "Starting Kubernetes Cluster Setup"
+echo "============================================="
+
+# Check if minikube is installed
+if ! command -v minikube &> /dev/null; then
+    echo "Minikube is not installed. Please install it first."
+    echo "For Ubuntu/Debian: sudo apt-get install minikube"
+    echo "For macOS: brew install minikube"
+    exit 1
+fi
+
+echo "1. Starting Minikube cluster..."
+minikube start --driver=docker
+
+echo "2. Verifying cluster status..."
+kubectl cluster-info
+
+echo "3. Checking nodes..."
+kubectl get nodes
+
+echo "4. Retrieving all pods in all namespaces..."
+kubectl get pods --all-namespaces
+
+echo "5. Setting Minikube context..."
+kubectl config use-context minikube
+
+echo "============================================="
+echo "Cluster Setup Complete!"
+echo "============================================="
+echo "To open dashboard: minikube dashboard"
+echo "To stop cluster: minikube stop"
+echo "To delete cluster: minikube delete"

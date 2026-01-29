@@ -5,3 +5,15 @@ db.sqlite3
 .env
 *.log
 .DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Docker
+docker-compose.override.yml
+
+# Database
+*.sqlite3
+db.sqlite3
+mysql_data/
