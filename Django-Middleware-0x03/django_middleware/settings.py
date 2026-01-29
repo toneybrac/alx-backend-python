@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'django_filters',
     'chats.apps.ChatsConfig',
     "messaging.apps.MessagingConfig",
+    "ip_tracking",
 
 ]
 
@@ -37,6 +38,7 @@ MIDDLEWARE = [
     'chats.middleware.RestrictAccessByTimeMiddleware',
     'chats.middleware.OffensiveLanguageMiddleware',
     'chats.middleware.RolepermissionMiddleware',
+    'ip_tracking.middleware.IPLoggingMiddleware',
 ]
 
 
