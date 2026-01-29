@@ -16,7 +16,7 @@ fi
 
 # Start minikube cluster
 echo "1. Starting Minikube cluster..."
-minikube start --driver=docker
+minikube start
 
 echo "2. Verifying cluster status..."
 kubectl cluster-info
