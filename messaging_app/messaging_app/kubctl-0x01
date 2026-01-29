@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# kubctl-0x01 - Script to scale Django app and perform load testing
+
+echo "============================================="
+echo "Scaling Django Messaging App"
+echo "============================================="
+
+# Define deployment name (adjust if different)
+DEPLOYMENT_NAME="django-messaging-app"
+
+echo "1. Current deployment status:"
+kubectl get deployments
+
+# Scale the deployment to 3 replicas
+echo ""
+echo "2. Scaling deployment to 3 replicas..."
+kubectl scale deployment $DEPLOYMENT_NAME --replicas=3
+
+echo ""
+echo "3. Checking pods status..."
+kubectl get pods -l app=django-app
+
+echo ""
+echo "4. Waiting for all pods to be ready..."
+sleep 10
+kubectl wait --for=condition=ready pod -l app=django-app --timeout=60s
+
+echo ""
+echo "5. Verifying multiple pods are running..."
+POD_COUNT=$(kubectl get pods -l app=django-app --no-headers | wc -l)
+echo "Number of running pods: $POD_COUNT"
+
+if [ $POD_COUNT -eq 3 ]; then
+    echo "✓ Successfully scaled to 3 replicas"
+else
+    echo "✗ Scaling incomplete. Current replicas: $POD_COUNT"
+fi
+
+echo ""
+echo "6. Monitoring resource usage..."
+echo "Node resource usage:"
+kubectl top nodes 2>/dev/null || echo "Metrics server not available. Install with: minikube addons enable metrics-server"
+
+echo ""
+echo "Pod resource usage:"
+kubectl top pods -l app=django-app 2>/dev/null || echo "Pod metrics not available yet"
+
+# Get service URL for load testing
+echo ""
+echo "7. Setting up for load testing..."
+
+# Get Minikube IP
+MINIKUBE_IP=$(minikube ip 2>/dev/null || echo "127.0.0.1")
+
+# Get service details - try different approaches
+SERVICE_PORT=$(kubectl get service django-service -o=jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null)
+
+if [ -z "$SERVICE_PORT" ] || [ "$SERVICE_PORT" = "<none>" ]; then
+    echo "Creating temporary NodePort service for testing..."
+    kubectl expose deployment $DEPLOYMENT_NAME --type=NodePort --name=django-test-service --port=8000
+    sleep 5
+    SERVICE_PORT=$(kubectl get service django-test-service -o=jsonpath='{.spec.ports[0].nodePort}')
+    TEST_URL="http://$MINIKUBE_IP:$SERVICE_PORT"
+    CLEANUP_SERVICE=true
+else
+    TEST_URL="http://$MINIKUBE_IP:$SERVICE_PORT"
+    CLEANUP_SERVICE=false
+fi
+
+echo "Load testing URL: $TEST_URL"
+
+# Perform load testing with wrk
+echo ""
+echo "8. Performing load testing with wrk..."
+
+if command -v wrk &> /dev/null; then
+    echo "Running wrk load test (2 threads, 10 connections, 30 seconds)..."
+    wrk -t2 -c10 -d30s $TEST_URL
+    WRK_EXIT_CODE=$?
+    
+    if [ $WRK_EXIT_CODE -eq 0 ]; then
+        echo "✓ Load test completed successfully"
+    else
+        echo "⚠ Load test exited with code $WRK_EXIT_CODE"
+    fi
+else
+    echo "wrk is not installed. Simulating load test with curl..."
+    
+    # Simulate load with multiple curl requests
+    echo "Simulating load with 10 concurrent curl requests..."
+    for i in {1..10}; do
+        (curl -s -o /dev/null -w "Request $i: %{http_code}\n" $TEST_URL/health 2>/dev/null || echo "Request $i: Failed") &
+    done
+    wait
+fi
+
+# Clean up temporary service if created
+if [ "$CLEANUP_SERVICE" = true ]; then
+    echo ""
+    echo "Cleaning up temporary service..."
+    kubectl delete service django-test-service
+fi
+
+echo ""
+echo "============================================="
+echo "Scaling and Testing Complete!"
+echo "============================================="
+echo "Final pod status:"
+kubectl get pods -l app=django-app -o wide
+
+echo ""
+echo "Deployment status:"
+kubectl get deployment $DEPLOYMENT_NAME
+
+# Summary
+echo ""
+echo "SUMMARY:"
+echo "- Scaled deployment to 3 replicas"
+echo "- Verified pods are running"
+echo "- Performed load testing"
+echo "- Monitored resource usage"

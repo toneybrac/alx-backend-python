@@ -1,0 +1,29 @@
+# 1. Enable the ingress addon in Minikube
+minikube addons enable ingress
+
+# 2. Check if ingress controller is running
+kubectl get pods -n ingress-nginx
+
+# 3. Apply the ingress configuration
+kubectl apply -f ingress.yaml
+
+# 4. Check ingress status
+kubectl get ingress
+
+# 5. Get Minikube IP for testing
+minikube ip
+
+# 6. Add host entries to /etc/hosts (Linux/Mac)
+# sudo sh -c "echo '$(minikube ip) django-app.local api.django-app.local' >> /etc/hosts"
+
+# 7. Test the ingress routes
+curl -H "Host: django-app.local" http://$(minikube ip)
+curl -H "Host: api.django-app.local" http://$(minikube ip)/api
+curl http://$(minikube ip)/app
+curl http://$(minikube ip)/static
+
+# 8. To check detailed ingress information
+kubectl describe ingress django-messaging-ingress
+
+# 9. To delete the ingress
+# kubectl delete -f ingress.yaml
