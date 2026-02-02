@@ -1,0 +1,152 @@
+#!/bin/bash
+
+# kubctl-0x03 - Rolling Update Script
+
+echo "============================================="
+echo "Starting Rolling Update to v2.0"
+echo "============================================="
+
+# Define deployment name
+DEPLOYMENT_NAME="django-blue"
+SERVICE_NAME="django-blue-service"
+
+echo "1. Current deployment status before update:"
+kubectl get deployment $DEPLOYMENT_NAME
+kubectl get pods -l version=blue
+
+# Apply the updated deployment
+echo ""
+echo "2. Applying updated deployment with image v2.0..."
+kubectl apply -f blue_deployment.yaml
+
+# Start monitoring rollout status
+echo ""
+echo "3. Monitoring rollout status..."
+kubectl rollout status deployment/$DEPLOYMENT_NAME --timeout=300s &
+ROLLOUT_PID=$!
+
+# Get service URL for testing
+echo ""
+echo "4. Setting up continuous testing during update..."
+
+# Get service access
+MINIKUBE_IP=$(minikube ip 2>/dev/null || echo "127.0.0.1")
+SERVICE_PORT=$(kubectl get service $SERVICE_NAME -o=jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null)
+
+if [ -z "$SERVICE_PORT" ] || [ "$SERVICE_PORT" = "<none>" ]; then
+    echo "Creating port-forward for testing..."
+    kubectl port-forward service/$SERVICE_NAME 8080:80 > /dev/null 2>&1 &
+    PORT_FORWARD_PID=$!
+    sleep 3
+    TEST_URL="http://localhost:8080"
+    TEST_METHOD="port-forward"
+else
+    TEST_URL="http://$MINIKUBE_IP:$SERVICE_PORT"
+    TEST_METHOD="nodeport"
+fi
+
+echo "Testing URL: $TEST_URL"
+
+# Continuous testing during rollout
+echo ""
+echo "5. Continuously testing application during rolling update..."
+echo "Sending requests every 2 seconds..."
+echo ""
+
+SUCCESS_COUNT=0
+FAIL_COUNT=0
+TOTAL_REQUESTS=0
+UPDATE_START_TIME=$(date +%s)
+
+# Function to send test request
+send_test_request() {
+    local REQUEST_NUM=$1
+    local TIMESTAMP=$(date +"%H:%M:%S")
+    
+    # Try to get response from health endpoint
+    RESPONSE=$(curl -s -f --max-time 5 "$TEST_URL/health/" 2>/dev/null || echo "FAILED")
+    
+    if [ "$RESPONSE" != "FAILED" ]; then
+        echo "[$TIMESTAMP] Request $REQUEST_NUM: ✓ Success"
+        SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+        return 0
+    else
+        echo "[$TIMESTAMP] Request $REQUEST_NUM: ✗ Failed"
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+        return 1
+    fi
+}
+
+# Send continuous requests
+REQUEST_NUM=1
+while kill -0 $ROLLOUT_PID 2>/dev/null; do
+    send_test_request $REQUEST_NUM
+    REQUEST_NUM=$((REQUEST_NUM + 1))
+    TOTAL_REQUESTS=$((TOTAL_REQUESTS + 1))
+    sleep 2
+done
+
+# Wait for rollout to complete
+wait $ROLLOUT_PID
+ROLLOUT_STATUS=$?
+
+# Send a few more requests after rollout
+echo ""
+echo "6. Sending final verification requests..."
+for i in {1..5}; do
+    send_test_request $REQUEST_NUM
+    REQUEST_NUM=$((REQUEST_NUM + 1))
+    TOTAL_REQUESTS=$((TOTAL_REQUESTS + 1))
+    sleep 1
+done
+
+# Clean up port-forward if used
+if [ ! -z "$PORT_FORWARD_PID" ]; then
+    kill $PORT_FORWARD_PID 2>/dev/null
+fi
+
+# Calculate duration
+UPDATE_END_TIME=$(date +%s)
+DURATION=$((UPDATE_END_TIME - UPDATE_START_TIME))
+
+echo ""
+echo "7. Test results:"
+echo "   Total requests sent: $TOTAL_REQUESTS"
+echo "   Successful requests: $SUCCESS_COUNT"
+echo "   Failed requests: $FAIL_COUNT"
+echo "   Success rate: $(echo "scale=1; $SUCCESS_COUNT * 100 / $TOTAL_REQUESTS" | bc)%"
+echo "   Update duration: ${DURATION} seconds"
+
+echo ""
+echo "8. Verifying rolling update is complete..."
+if [ $ROLLOUT_STATUS -eq 0 ]; then
+    echo "✅ Rolling update completed successfully!"
+else
+    echo "⚠️  Rolling update may have issues (exit code: $ROLLOUT_STATUS)"
+fi
+
+echo ""
+echo "9. Checking current pods:"
+kubectl get pods -l version=blue
+
+echo ""
+echo "10. Deployment status after update:"
+kubectl get deployment $DEPLOYMENT_NAME
+
+echo ""
+echo "11. Checking rollout history:"
+kubectl rollout history deployment/$DEPLOYMENT_NAME
+
+echo ""
+echo "12. Verifying new image version:"
+kubectl get pods -l version=blue -o jsonpath='{.items[*].spec.containers[*].image}' | tr ' ' '\n'
+
+echo ""
+echo "============================================="
+if [ $FAIL_COUNT -eq 0 ]; then
+    echo "✅ Rolling update completed with ZERO DOWNTIME!"
+else
+    echo "⚠️  Rolling update completed with $FAIL_COUNT failed requests"
+    echo "   (Some failures might be expected during pod transitions)"
+fi
+echo "============================================="

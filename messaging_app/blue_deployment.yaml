@@ -2,11 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: django-blue
-  labels:
-    app: django-app
-    version: blue
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: django-app
@@ -19,12 +16,12 @@ spec:
     spec:
       containers:
       - name: django-container
-        image: your-username/django-messaging-app:v1.0
+        image: django-app:v2.0  # Updated from v1.0 to v2.0
         ports:
         - containerPort: 8000
         env:
         - name: VERSION
-          value: "blue-v1.0"
+          value: "blue-v2.0"
         - name: DJANGO_SETTINGS_MODULE
           value: "messaging_app.settings"
         resources:
