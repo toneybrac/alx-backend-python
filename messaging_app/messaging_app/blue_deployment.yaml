@@ -1,36 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: django-messaging-app
+  name: django-blue
   labels:
     app: django-app
-    tier: backend
+    version: blue
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: django-app
-      tier: backend
+      version: blue
   template:
     metadata:
       labels:
         app: django-app
-        tier: backend
+        version: blue
     spec:
       containers:
       - name: django-container
-        image: your-username/django-messaging-app:latest
-        imagePullPolicy: IfNotPresent
+        image: your-username/django-messaging-app:v1.0
         ports:
         - containerPort: 8000
         env:
+        - name: VERSION
+          value: "blue-v1.0"
         - name: DJANGO_SETTINGS_MODULE
           value: "messaging_app.settings"
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: django-secrets
-              key: database-url
         resources:
           requests:
             memory: "256Mi"
@@ -54,11 +50,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: django-service
+  name: django-blue-service
 spec:
   selector:
     app: django-app
-    tier: backend
+    version: blue
   ports:
   - protocol: TCP
     port: 80

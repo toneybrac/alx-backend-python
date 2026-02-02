@@ -1,0 +1,129 @@
+#!/bin/bash
+
+# kubctl-0x02 - Blue-Green Deployment Script
+
+echo "============================================="
+echo "Blue-Green Deployment Strategy"
+echo "============================================="
+
+# Deploy Blue version
+echo "1. Deploying Blue version (v1.0)..."
+kubectl apply -f blue_deployment.yaml
+
+echo "2. Waiting for Blue deployment to be ready..."
+kubectl wait --for=condition=available deployment/django-blue --timeout=120s
+
+# Check Blue deployment logs
+echo "3. Checking Blue deployment logs..."
+BLUE_PODS=$(kubectl get pods -l version=blue -o jsonpath='{.items[*].metadata.name}')
+for POD in $BLUE_PODS; do
+    echo "--- Logs from Blue pod: $POD ---"
+    kubectl logs $POD --tail=5
+    echo ""
+done
+
+# Deploy Green version
+echo "4. Deploying Green version (v2.0)..."
+kubectl apply -f green_deployment.yaml
+
+echo "5. Waiting for Green deployment to be ready..."
+kubectl wait --for=condition=available deployment/django-green --timeout=120s
+
+# Check Green deployment logs for errors
+echo "6. Checking Green deployment logs for errors..."
+GREEN_PODS=$(kubectl get pods -l version=green -o jsonpath='{.items[*].metadata.name}')
+ERROR_FOUND=false
+
+for POD in $GREEN_PODS; do
+    echo "--- Checking Green pod: $POD ---"
+    LOGS=$(kubectl logs $POD --tail=50)
+    
+    # Check for common error patterns
+    if echo "$LOGS" | grep -i "error\|exception\|fail\|crash" > /dev/null; then
+        echo "⚠️  Errors found in pod $POD:"
+        echo "$LOGS" | grep -i "error\|exception\|fail\|crash" | head -5
+        ERROR_FOUND=true
+    else
+        echo "✓ No errors found in pod $POD"
+        # Show last few lines for verification
+        echo "Last 5 lines:"
+        echo "$LOGS" | tail -5
+    fi
+    echo ""
+done
+
+# Apply main service (pointing to Blue initially)
+echo "7. Applying main service configuration..."
+kubectl apply -f kubeservice.yaml
+
+echo "8. Current deployment status:"
+echo "Blue deployment:"
+kubectl get deployment django-blue
+echo ""
+echo "Green deployment:"
+kubectl get deployment django-green
+echo ""
+echo "Pods:"
+kubectl get pods -l app=django-app
+
+echo "9. Service status:"
+kubectl get service django-main-service
+
+# Function to switch traffic between blue and green
+switch_traffic() {
+    local TARGET_VERSION=$1
+    
+    echo ""
+    echo "============================================="
+    echo "Switching traffic to $TARGET_VERSION version..."
+    echo "============================================="
+    
+    # Update service selector
+    kubectl patch service django-main-service -p "{\"spec\":{\"selector\":{\"version\":\"$TARGET_VERSION\"}}}"
+    
+    # Verify the switch
+    echo "Service selector updated to:"
+    kubectl get service django-main-service -o jsonpath='{.spec.selector}'
+    echo ""
+    
+    # Test the new version
+    MINIKUBE_IP=$(minikube ip)
+    SERVICE_PORT=$(kubectl get service django-main-service -o=jsonpath='{.spec.ports[0].nodePort}')
+    
+    if [ ! -z "$SERVICE_PORT" ] && [ "$SERVICE_PORT" != "<none>" ]; then
+        echo "Testing $TARGET_VERSION endpoint..."
+        for i in {1..3}; do
+            RESPONSE=$(curl -s http://$MINIKUBE_IP:$SERVICE_PORT 2>/dev/null || echo "Request failed")
+            echo "Test $i: $RESPONSE" | head -c 50
+            echo ""
+            sleep 1
+        done
+    fi
+}
+
+echo ""
+echo "============================================="
+echo "Blue-Green Deployment Setup Complete!"
+echo "============================================="
+echo ""
+echo "Current traffic is on BLUE version"
+echo ""
+echo "To switch traffic to GREEN version, run:"
+echo "  kubectl patch service django-main-service -p '{\"spec\":{\"selector\":{\"version\":\"green\"}}}'"
+echo ""
+echo "To switch back to BLUE version, run:"
+echo "  kubectl patch service django-main-service -p '{\"spec\":{\"selector\":{\"version\":\"blue\"}}}'"
+echo ""
+echo "To test both versions directly:"
+echo "  Blue: kubectl port-forward service/django-blue-service 8080:80"
+echo "  Green: kubectl port-forward service/django-green-service 8081:80"
+echo ""
+echo "Summary:"
+echo "- Blue deployment (v1.0): 2 replicas"
+echo "- Green deployment (v2.0): 2 replicas"
+echo "- Main service routing to: Blue"
+if [ "$ERROR_FOUND" = true ]; then
+    echo "- Status: ⚠️  Errors detected in Green deployment"
+else
+    echo "- Status: ✅ All deployments healthy"
+fi
